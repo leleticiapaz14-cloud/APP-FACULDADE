@@ -5,8 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Meu Semestre</title>
   <meta name="description" content="Frequência, metas de estudo, notas e provas da faculdade.">
-  <meta name="theme-color" content="#F2F4F0" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0F1411" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F4F0">
+  <script>
+    // Tema escolhido em Ajustes (padrão: sempre claro). Aplicado antes de desenhar para não piscar.
+    (function () {
+      var t = "claro"; try { t = localStorage.getItem("ms-tema") || "claro"; } catch (e) {}
+      var dark = t === "escuro" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      document.querySelector('meta[name="theme-color"]').content = dark ? "#0F1411" : "#F2F4F0";
+    })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Semestre">

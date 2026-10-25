@@ -362,6 +362,9 @@ const views = {
           <button class="btn primary full" type="submit">Salvar</button>
         </form>
       </section>
+      <section><h2>Aparência</h2>
+        <div class="card"><div class="filters" role="group" aria-label="Tema">${[["claro", "Claro"], ["escuro", "Escuro"], ["auto", "Igual ao celular"]].map(([k, l]) => `<button data-act="tema" data-t="${k}" aria-pressed="${getTheme() === k}">${l}</button>`).join("")}</div></div>
+      </section>
       <section><h2>Conta</h2>
         <div class="card toggle"><span class="small muted">${esc(user.email)}</span><button class="btn danger" data-act="logout">Sair</button></div>
       </section>`;
@@ -408,6 +411,16 @@ function gradeResult(s) {
     ${row(`Para pelo menos ir para a final, tire ${each}`, r.needFinal)}
   </div>`;
 }
+
+// ---------- tema (guardado no aparelho) ----------
+
+function getTheme() { try { return localStorage.getItem("ms-tema") || "claro"; } catch { return "claro"; } }
+function applyTheme(t = getTheme()) {
+  const dark = t === "escuro" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#0F1411" : "#F2F4F0";
+}
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme());
 
 // ---------- cronômetro (guardado no aparelho, sobrevive a fechar o app) ----------
 
@@ -587,6 +600,7 @@ const actions = {
   },
   "push-off": async () => { await disablePush(); toast("Notificações desativadas"); await refreshPush(); },
   "install": async () => { const p = installPrompt; if (!p) return; installPrompt = null; await p.prompt(); render(); },
+  "tema": t => { try { localStorage.setItem("ms-tema", t.dataset.t); } catch { /* sem armazenamento */ } applyTheme(t.dataset.t); render(); },
   "logout": async () => { await sb.auth.signOut(); },
 };
 
