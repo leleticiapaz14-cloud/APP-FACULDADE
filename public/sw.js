@@ -1,5 +1,5 @@
 // Service worker do Meu Semestre: guarda o app para abrir offline e recebe as notificações push.
-const CACHE = "meu-semestre-v1";
+const CACHE = "meu-semestre-v2";
 const SCOPE = self.registration.scope; // ex.: https://usuario.github.io/APP-FACULDADE/
 // Links das notificações vêm como "/?aba=..."; ficam relativos ao endereço do app
 const appUrl = u => new URL(String(u || "").replace(/^\//, ""), SCOPE).href;
