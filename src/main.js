@@ -4,6 +4,7 @@ import { analyze, fmtN, parseN, NAME_RE } from "./grades.js";
 import { pushState, enablePush, disablePush, isIOS } from "./push.js";
 import { WD, WD_LONG, MONTHS, COLORS, TYPE_LABEL, today, iso, parse, daysUntil, addDays, weekStart, fmtMin, fmtDate, fmtTime, esc, color, greeting } from "./util.js";
 
+const APP_HOME = location.origin + import.meta.env.BASE_URL;
 const $ = id => document.getElementById(id);
 const app = $("app");
 
@@ -468,11 +469,11 @@ async function onAuthSubmit(f) {
       const { error } = await sb.auth.signInWithPassword({ email: v.email, password: v.password });
       if (error) throw new Error(error.message.includes("Invalid") ? "E-mail ou senha incorretos." : error.message.includes("confirm") ? "Confirme seu e-mail antes de entrar (veja sua caixa de entrada)." : error.message);
     } else if (ui.authMode === "criar") {
-      const { data: d, error } = await sb.auth.signUp({ email: v.email, password: v.password, options: { data: { name: v.name }, emailRedirectTo: location.origin } });
+      const { data: d, error } = await sb.auth.signUp({ email: v.email, password: v.password, options: { data: { name: v.name }, emailRedirectTo: APP_HOME } });
       if (error) throw error;
       if (!d.session) { ui.authMode = "entrar"; return renderAuth("✓ Conta criada. Abra o e-mail de confirmação e depois entre aqui."); }
     } else if (ui.authMode === "esqueci") {
-      const { error } = await sb.auth.resetPasswordForEmail(v.email, { redirectTo: location.origin });
+      const { error } = await sb.auth.resetPasswordForEmail(v.email, { redirectTo: APP_HOME });
       if (error) throw error;
       ui.authMode = "entrar"; return renderAuth("✓ Se o e-mail estiver cadastrado, chega um link para criar uma nova senha.");
     } else if (ui.authMode === "nova") {
@@ -691,7 +692,7 @@ async function start() {
   if (link && subjById(link.subject_id)) recordAttendance(link.subject_id, link.date, link.present).catch(fail);
 }
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(console.error);
+if ("serviceWorker" in navigator) navigator.serviceWorker.register(import.meta.env.BASE_URL + "sw.js").catch(console.error);
 
 if (!configured) renderAuth();
 else {

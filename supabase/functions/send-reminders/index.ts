@@ -5,16 +5,20 @@ import webpush from "npm:web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const CRON_SECRET = Deno.env.get("CRON_SECRET")!;
 const APP_URL = (Deno.env.get("APP_URL") || "").replace(/\/$/, "");
 
-webpush.setVapidDetails(
-  Deno.env.get("VAPID_SUBJECT") || "mailto:meu-semestre@example.com",
-  Deno.env.get("VAPID_PUBLIC_KEY")!,
-  Deno.env.get("VAPID_PRIVATE_KEY")!,
-);
-
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+
+// As chaves de push e o segredo do cron ficam no Vault do banco (função app_secrets)
+let secrets: Promise<Record<string, string>> | null = null;
+function loadSecrets() {
+  secrets ||= db.rpc("app_secrets").then(({ data, error }) => {
+    if (error) { secrets = null; throw error; }
+    webpush.setVapidDetails("mailto:meu-semestre@users.noreply.github.com", data.vapid_public_key, data.vapid_private_key);
+    return data;
+  });
+  return secrets;
+}
 
 type Msg = { key: string; title: string; body: string; url?: string; tag?: string; actions?: { action: string; title: string }[]; actionUrls?: Record<string, string> };
 
@@ -106,7 +110,8 @@ async function messagesFor(profile: any, now: Date): Promise<Msg[]> {
 }
 
 Deno.serve(async req => {
-  if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) return new Response("forbidden", { status: 403 });
+  const { cron_secret } = await loadSecrets();
+  if (!cron_secret || req.headers.get("x-cron-secret") !== cron_secret) return new Response("forbidden", { status: 403 });
   const body = await req.json().catch(() => ({}));
   const now = new Date();
 

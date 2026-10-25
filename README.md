@@ -12,40 +12,40 @@ App pessoal para a faculdade, feito para usar no celular (PWA, instala na Tela d
 
 | Parte | Onde |
 | --- | --- |
-| Telas (HTML, CSS e JavaScript, sem framework) | `src/`, publicado na Vercel |
+| Telas (HTML, CSS e JavaScript, sem framework) | `src/`, publicado no GitHub Pages pelo workflow `.github/workflows/deploy.yml` |
 | Login, banco Postgres com RLS | Supabase, `supabase/migrations/` |
 | Avisos | Edge Function `supabase/functions/send-reminders`, chamada pelo `pg_cron` a cada 15 min |
 | Funciona offline e recebe push | `public/sw.js` |
 
 Cada tabela tem `user_id` e política de RLS, então cada conta só vê os próprios dados.
+As chaves de push e o segredo do cron ficam no Vault do Supabase (veja o comentário em
+`supabase/migrations/20261025000200_segredos_e_cron.sql`); nada secreto fica no repositório.
+O `.env.production` só tem valores públicos.
 
 ## Rodar no computador
 
 ```bash
 npm install
-cp .env.example .env.local   # preencha com os dados do Supabase
-npm run dev
-npm test                     # testa o cálculo de notas
+npm run dev      # usa o .env.production se não houver .env.local
+npm test         # testa o cálculo de notas
 ```
 
-## Configuração do Supabase (uma vez)
+## Publicar
 
-1. Aplique a migração `supabase/migrations/20261025000000_inicial.sql`.
-2. Gere as chaves de push: `npx web-push generate-vapid-keys`.
-3. Publique a função e defina os segredos:
-   ```bash
-   supabase functions deploy send-reminders
-   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:seu@email \
-     CRON_SECRET=um-texto-aleatorio APP_URL=https://seu-app.vercel.app
-   ```
-4. Rode `supabase/cron.sql` no SQL Editor (troque os dois valores marcados).
-5. Em Authentication → URL Configuration, coloque o endereço da Vercel em **Site URL** e em **Redirect URLs**.
+Cada push na `main` testa, gera o site e publica no GitHub Pages
+(precisa estar ligado uma vez em Settings → Pages → Source: **GitHub Actions**).
+No Supabase, o endereço do site precisa estar em Authentication → URL Configuration
+(**Site URL**), senão o link de confirmação do e-mail não volta para o app.
 
-Para testar o envio: `curl -X POST "$SUPABASE_URL/functions/v1/send-reminders" -H "x-cron-secret: $CRON_SECRET" -d '{"test":true}'`.
+Para testar os avisos, rode no SQL Editor:
 
-## Publicar na Vercel
-
-Importe o repositório na Vercel (framework: Vite) e defina as variáveis `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_VAPID_PUBLIC_KEY`. Cada push na `main` publica de novo.
+```sql
+select net.http_post(
+  url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/send-reminders',
+  headers := jsonb_build_object('Content-Type', 'application/json',
+    'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')),
+  body := '{"test": true}'::jsonb);
+```
 
 ## iPhone
 
