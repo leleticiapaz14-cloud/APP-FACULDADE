@@ -1,0 +1,3 @@
+# Só o necessário para o deploy da função. O resto usa os padrões do Supabase.
+[functions.send-reminders]
+verify_jwt = false
