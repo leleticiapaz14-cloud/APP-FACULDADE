@@ -112,6 +112,14 @@ const noSubjects = () => `<div class="card empty"><h2>Comece pelas suas matéria
   <div class="muted">Cadastre cada matéria com os dias, o horário e o total de aulas. Depois é só registrar presença, estudar e lançar notas.</div>
   <button class="btn primary" data-act="new-subject">Cadastrar matéria</button></div>`;
 
+// Android/Chrome oferece instalar o app; guardamos o pedido para mostrar nosso próprio botão
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; if (data && (ui.view === "hoje" || ui.view === "ajustes")) render(); });
+window.addEventListener("appinstalled", () => { installPrompt = null; toast("App instalado! Abra pelo ícone Semestre."); if (data) render(); });
+const installCard = () => installPrompt
+  ? `<div class="alert soft"><span class="ic">↓</span><div class="grow"><b>Instale o app no celular</b> para abrir pelo ícone e receber os avisos.<div class="actions" style="margin-top:8px"><button class="btn primary" data-act="install">Instalar app</button></div></div></div>`
+  : "";
+
 function pushCard() {
   if (ui.push === "off") return `<div class="alert soft"><span class="ic">!</span><div class="grow"><b>Ative os avisos.</b> O app te lembra das provas, da meta de estudo e pergunta se você foi à aula.<div class="actions" style="margin-top:8px"><button class="btn primary" data-act="push-on">Ativar notificações</button></div></div></div>`;
   if (ui.push === "needs-install") return `<div class="alert soft"><span class="ic">!</span><div><b>Para receber avisos no iPhone:</b> toque em Compartilhar e depois em "Adicionar à Tela de Início". Abra o app pelo ícone e ative as notificações em Ajustes.</div></div>`;
@@ -124,7 +132,7 @@ const views = {
   hoje() {
     const t = today(), p = data.profile || {};
     const head = `<div><div class="eyebrow">${WD_LONG[t.getDay()]}, ${t.getDate()} de ${MONTHS[t.getMonth()]}</div><h1>${greeting()}${p.name ? `, ${esc(p.name.split(" ")[0])}` : ""}</h1></div>`;
-    if (!data.subjects.length) return head + pushCard() + noSubjects();
+    if (!data.subjects.length) return head + installCard() + pushCard() + noSubjects();
 
     const stats = data.subjects.map(s => [s, att(s)]);
     const crit = stats.filter(([, a]) => a.st.key === "critico" && a.limit);
@@ -145,6 +153,7 @@ const views = {
     return `${head}
       ${pend ? `<div class="alert soft"><span class="ic">?</span><div class="grow"><b>Você foi na aula de ${esc(pend.name)}?</b> <span class="muted">${fmtDate(ui.pendingAtt.date)}</span>
         <div class="actions" style="margin-top:8px"><button class="btn primary" data-act="pending" data-p="1">Fui</button><button class="btn danger" data-act="pending" data-p="0">Faltei</button><button class="link" data-act="pending" data-p="">Agora não</button></div></div></div>` : ""}
+      ${installCard()}
       ${pushCard()}
       ${crit.map(([s, a]) => `<div class="alert"><span class="ic">!</span><div><b>${esc(s.name)}:</b> você já tem ${a.absences} ${a.absences === 1 ? "falta" : "faltas"} de ${a.limit} permitidas. ${a.left === 1 ? "Mais uma e fica no limite exato." : a.left < 0 ? "Fale com a coordenação sobre a sua situação." : ""} Evite faltar até o fim do semestre.</div></div>`).join("")}
       <div class="stats">
@@ -324,6 +333,7 @@ const views = {
     const tg = (k, txt) => `<label class="toggle"><span>${txt}</span><input type="checkbox" data-pref="${k}" ${p[k] ? "checked" : ""}></label>`;
     return `
       <div><div class="eyebrow">Ajustes</div><h1>Seu semestre</h1></div>
+      ${installCard()}
       <section><h2>Notificações</h2>
         <div class="card list" style="gap:12px">${pushLine}
           ${tg("notify_study", "Lembrar da meta de estudo no fim da semana")}
@@ -558,6 +568,7 @@ const actions = {
   },
   "push-on": async t => { t.disabled = true; try { await enablePush(); toast("Notificações ativadas"); } catch (e) { toast(e.message); } await refreshPush(); },
   "push-off": async () => { await disablePush(); toast("Notificações desativadas"); await refreshPush(); },
+  "install": async () => { const p = installPrompt; if (!p) return; installPrompt = null; await p.prompt(); render(); },
   "logout": async () => { await sb.auth.signOut(); },
 };
 
