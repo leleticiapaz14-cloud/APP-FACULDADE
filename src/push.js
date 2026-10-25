@@ -25,8 +25,20 @@ export async function enablePush() {
   const perm = await Notification.requestPermission();
   if (perm !== "granted") throw new Error("Você não permitiu as notificações.");
   const reg = await navigator.serviceWorker.ready;
-  const sub = (await reg.pushManager.getSubscription())
-    || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID) });
+  const opts = { userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID) };
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    // O serviço de push do Android às vezes falha na primeira tentativa; tenta de novo antes de desistir
+    for (let i = 0; i < 3 && !sub; i++) {
+      try { sub = await reg.pushManager.subscribe(opts); }
+      catch (e) {
+        if (i === 2) throw new Error(e?.name === "AbortError" || /push service/i.test(e?.message || "")
+          ? "O serviço de notificações do celular não respondeu. Veja as dicas em Ajustes e tente de novo."
+          : `Não deu para ativar: ${e?.message || e}`);
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+  }
   const j = sub.toJSON();
   await savePushSubscription({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: navigator.userAgent.slice(0, 200) });
 }

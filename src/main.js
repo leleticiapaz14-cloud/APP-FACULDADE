@@ -330,12 +330,18 @@ const views = {
       "unsupported": `<div class="info">Este navegador não aceita notificações. ${isIOS() ? "Use o Safari e adicione à Tela de Início." : "Tente o Chrome."}</div>`,
       "no-key": `<div class="info">As notificações ainda não foram configuradas no servidor.</div>`,
     }[ui.push] || `<div class="info">Verificando…</div>`;
+    const pushHelp = ui.pushError && ui.push === "off" ? `<div class="info"><b>Não ativou?</b> No Android isso costuma ser o celular bloqueando o Chrome em segundo plano. Tente:<br>
+      1. Configurações do celular → Apps → Chrome → Bateria: permitir atividade em segundo plano (sem restrição).<br>
+      2. Configurações → Apps → Chrome → Notificações: ativadas.<br>
+      3. Desligue VPN, bloqueador de anúncios ou "DNS privado" por um momento.<br>
+      4. Atualize o "Google Play Services" na Play Store.<br>
+      Depois feche o app e tente de novo.</div>` : "";
     const tg = (k, txt) => `<label class="toggle"><span>${txt}</span><input type="checkbox" data-pref="${k}" ${p[k] ? "checked" : ""}></label>`;
     return `
       <div><div class="eyebrow">Ajustes</div><h1>Seu semestre</h1></div>
       ${installCard()}
       <section><h2>Notificações</h2>
-        <div class="card list" style="gap:12px">${pushLine}
+        <div class="card list" style="gap:12px">${pushLine}${pushHelp}
           ${tg("notify_study", "Lembrar da meta de estudo no fim da semana")}
           ${tg("notify_events", "Avisar de provas e trabalhos (3 dias e 1 dia antes)")}
           ${tg("notify_classes", "Perguntar se fui na aula, logo depois dela")}
@@ -566,7 +572,12 @@ const actions = {
     data.events = data.events.filter(x => x.subject_id !== s.id);
     ui.editing = null; render(); toast("Matéria apagada");
   },
-  "push-on": async t => { t.disabled = true; try { await enablePush(); toast("Notificações ativadas"); } catch (e) { toast(e.message); } await refreshPush(); },
+  "push-on": async t => {
+    t.disabled = true;
+    try { await enablePush(); ui.pushError = false; toast("Notificações ativadas"); }
+    catch (e) { ui.pushError = true; toast(e.message); }
+    await refreshPush(); render();
+  },
   "push-off": async () => { await disablePush(); toast("Notificações desativadas"); await refreshPush(); },
   "install": async () => { const p = installPrompt; if (!p) return; installPrompt = null; await p.prompt(); render(); },
   "logout": async () => { await sb.auth.signOut(); },
