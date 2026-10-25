@@ -656,6 +656,17 @@ document.addEventListener("submit", e => {
 });
 
 // Link vindo da notificação: ?registrar=<matéria>&data=AAAA-MM-DD[&presente=1|0]
+// Link do e-mail que falhou volta com #error_code=...; explica em vez de só mostrar o login
+function linkError() {
+  const h = new URLSearchParams((window.__authHash || "").replace(/^#/, ""));
+  window.__authHash = "";
+  if (!h.get("error") && !h.get("error_code")) return "";
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+  return h.get("error_code") === "otp_expired"
+    ? "Esse link de confirmação venceu ou já foi usado. Se você pediu cadastro mais de uma vez, use o e-mail mais recente, ou tente entrar."
+    : "O link do e-mail não funcionou. Tente entrar ou peça um novo.";
+}
+
 function readDeepLink() {
   const q = new URLSearchParams(location.search);
   const subject_id = q.get("registrar"), date = q.get("data"), p = q.get("presente"), view = q.get("aba");
@@ -675,7 +686,7 @@ const boot = () => (booting ||= start().finally(() => (booting = null)));
 async function start() {
   const { data: { session } } = await sb.auth.getSession();
   user = session?.user || null;
-  if (!user) { data = null; return renderAuth(); }
+  if (!user) { data = null; return renderAuth(linkError()); }
   if (ui.authMode === "nova") return renderAuth();
   app.innerHTML = `<div class="loading">Carregando…</div>`;
   try {
