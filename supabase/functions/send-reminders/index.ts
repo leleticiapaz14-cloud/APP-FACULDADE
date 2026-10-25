@@ -109,16 +109,32 @@ async function messagesFor(profile: any, now: Date): Promise<Msg[]> {
   return out;
 }
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+};
+
 Deno.serve(async req => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const { cron_secret } = await loadSecrets();
-  if (!cron_secret || req.headers.get("x-cron-secret") !== cron_secret) return new Response("forbidden", { status: 403 });
-  const body = await req.json().catch(() => ({}));
+  let body = await req.json().catch(() => ({}));
+  let onlyUser: string | null = null;
+  if (!cron_secret || req.headers.get("x-cron-secret") !== cron_secret) {
+    // Sem o segredo do cron, só aceita o botão de teste do app, para a própria pessoa logada
+    const token = (req.headers.get("authorization") || "").replace(/^Bearer /i, "");
+    const { data } = token ? await db.auth.getUser(token) : { data: null };
+    if (!data?.user) return new Response("forbidden", { status: 403, headers: CORS });
+    onlyUser = data.user.id;
+    body = { test: true };
+  }
   const now = new Date();
 
-  const { data: subs } = await db.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth");
+  let q = db.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth");
+  if (onlyUser) q = q.eq("user_id", onlyUser);
+  const { data: subs } = await q;
   const byUser = new Map<string, any[]>();
   for (const s of subs || []) byUser.set(s.user_id, [...(byUser.get(s.user_id) || []), s]);
-  if (!byUser.size) return Response.json({ sent: 0 });
+  if (!byUser.size) return Response.json({ sent: 0 }, { headers: CORS });
 
   const { data: profiles } = await db.from("profiles").select("*").in("id", [...byUser.keys()]);
   let sent = 0;
@@ -145,5 +161,5 @@ Deno.serve(async req => {
       }
     }
   }
-  return Response.json({ sent, errors: report });
+  return Response.json({ sent, errors: report }, { headers: CORS });
 });

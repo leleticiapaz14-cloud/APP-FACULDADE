@@ -323,7 +323,7 @@ const views = {
   ajustes() {
     const p = data.profile || {};
     const pushLine = {
-      "on": `<div class="toggle"><span><b>Notificações ativadas</b> neste aparelho.</span><button class="btn" data-act="push-off">Desativar</button></div>`,
+      "on": `<div class="toggle"><span><b>Notificações ativadas</b> neste aparelho.</span><button class="btn" data-act="push-off">Desativar</button></div><button class="btn" data-act="push-test">Mandar aviso de teste</button>`,
       "off": `<div class="toggle"><span>Receba avisos de provas, metas e aulas.</span><button class="btn primary" data-act="push-on">Ativar</button></div>`,
       "denied": `<div class="info">As notificações estão bloqueadas para este site. Libere nas configurações do navegador ou do celular e volte aqui.</div>`,
       "needs-install": `<div class="info">No iPhone, os avisos só funcionam com o app na Tela de Início: toque em Compartilhar, depois em "Adicionar à Tela de Início", e abra pelo ícone.</div>`,
@@ -577,6 +577,13 @@ const actions = {
     try { await enablePush(); ui.pushError = false; toast("Notificações ativadas"); }
     catch (e) { ui.pushError = true; toast(e.message); }
     await refreshPush(); render();
+  },
+  "push-test": async t => {
+    t.disabled = true;
+    const { data: r, error } = await sb.functions.invoke("send-reminders", { body: { test: true } });
+    t.disabled = false;
+    if (error) throw error;
+    toast(r?.sent ? "Aviso enviado! Deve chegar em alguns segundos." : "Nenhum aparelho inscrito. Ative as notificações de novo.");
   },
   "push-off": async () => { await disablePush(); toast("Notificações desativadas"); await refreshPush(); },
   "install": async () => { const p = installPrompt; if (!p) return; installPrompt = null; await p.prompt(); render(); },
